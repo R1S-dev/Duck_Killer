@@ -4,7 +4,6 @@ import { Star, Skull, ArrowLeft } from "lucide-react";
 export default function GameUI({ score, kills, gameOver, onRestart, onExit }) {
   return (
     <>
-      {/* Score i Kills bar */}
       <div className="absolute top-4 left-4 flex space-x-6 items-center text-white z-10 select-none">
         <div className="flex items-center space-x-2 bg-black/50 rounded-md px-3 py-1 shadow-md">
           <Star size={24} className="text-yellow-400" />
@@ -16,7 +15,6 @@ export default function GameUI({ score, kills, gameOver, onRestart, onExit }) {
         </div>
       </div>
 
-      {/* GAME OVER OVERLAY */}
       {gameOver && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/90 text-white flex-col px-6 space-y-4">
           <h1 className="text-4xl font-extrabold flex items-center space-x-3">

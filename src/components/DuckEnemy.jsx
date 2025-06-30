@@ -2,78 +2,130 @@ import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } f
 import { useGLTF, useAnimations } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { clone } from "three/examples/jsm/utils/SkeletonUtils";
 
-useGLTF.preload("/duck.glb");
+const DuckEnemy = forwardRef(
+  (
+    { positionZ, initialX = 0, playerRef, onDeath, isBoss = false, visible = true },
+    ref
+  ) => {
+    const group = useRef();
+    const { scene: originalScene, animations } = useGLTF(isBoss ? "/boss_duck.glb" : "/duck.glb");
+    const [scene, setScene] = useState(null);
 
-const DuckEnemy = forwardRef(({ positionZ, playerRef, onDeath }, ref) => {
-  const group = useRef();
-  const { scene, animations } = useGLTF("/duck.glb");
-  const { actions } = useAnimations(animations, group);
+    useEffect(() => {
+      const cloned = clone(originalScene);
+      setScene(cloned);
+    }, [originalScene]);
 
-  const speed = 0.3;
-  const initialX = useRef((Math.random() - 0.5) * 4);
-  const startZ = useRef(positionZ);
-  const endZ = 6;
+    const { actions } = useAnimations(animations, group);
 
-  // State koji prati da li je neprijatelj ziv i vidljiv
-  const [visible, setVisible] = useState(true);
+    const speed = isBoss ? 15 : 18;
+    const maxHP = isBoss ? 3 : 1;
+    const scaleAmount = isBoss ? 0.7 : 3.0; // boss manji, obicne duplo vece
 
-  useEffect(() => {
-    const animName = "walkcycle_1";
-    if (actions[animName]) {
-      actions[animName].reset().fadeIn(0.2).play();
-    }
-    if (scene) {
-      scene.visible = true;
-      scene.position.set(0, 0, 0);
-      scene.scale.set(1, 1, 1);
-    }
-  }, [actions, scene]);
+    const endZ = 6;
 
-  useImperativeHandle(ref, () => ({
-    getObject: () => group.current,
-    isAlive: () => visible,
-    takeHit: () => {
-      if (!visible) return;
-      setVisible(false);
-      if (onDeath) {
-        onDeath();
+    const [hp, setHp] = useState(maxHP);
+    const currentPos = useRef(new THREE.Vector3(initialX, 0.2, positionZ));
+
+    useEffect(() => {
+      if (group.current) {
+        group.current.position.copy(currentPos.current);
       }
-    },
-  }));
+    }, []);
 
-  useFrame(() => {
-    if (!group.current || !playerRef.current || !visible) return;
+    useEffect(() => {
+      if (actions && scene) {
+        const animName = "walkcycle_1";
+        if (actions[animName]) {
+          actions[animName].reset().fadeIn(0.2).play();
+        }
+      }
+    }, [actions, scene]);
 
-    group.current.position.z += speed;
+    useImperativeHandle(ref, () => ({
+      getObject: () => group.current,
+      isAlive: () => hp > 0,
+      takeHit: () => {
+        setHp((h) => {
+          const newHp = h - 1;
+          if (newHp <= 0) {
+            if (onDeath) setTimeout(() => onDeath(isBoss), 0);
+          }
+          return newHp;
+        });
+      },
+    }));
 
-    const playerPos = new THREE.Vector3();
-    playerRef.current.getWorldPosition(playerPos);
+    useEffect(() => {
+      if (visible) {
+        setHp(maxHP);
+      }
+    }, [visible, maxHP]);
 
-    // Okreni se prema igracu (plus rotacija za model)
-    group.current.lookAt(playerPos.x, group.current.position.y, playerPos.z);
-    group.current.rotation.y += Math.PI;
+    useFrame((state, delta) => {
+      if (!group.current || !playerRef?.current || !visible || hp <= 0 || !scene) return;
 
-    // Resetuj poziciju i vrati vidljivost ako je prosao kraj
-    if (group.current.position.z > endZ) {
-      group.current.position.z = startZ.current;
-      group.current.position.x = (Math.random() - 0.5) * 4;
-      setVisible(true);
-    }
-  });
+      const playerPos = new THREE.Vector3();
+      if (typeof playerRef.current.getWorldPosition === "function") {
+        playerRef.current.getWorldPosition(playerPos);
+      } else if (playerRef.current.position) {
+        playerPos.copy(playerRef.current.position);
+      } else {
+        console.warn("playerRef nema poziciju!");
+        return;
+      }
 
-  return (
-    <group ref={group} position={[initialX.current, 0.2, startZ.current]} scale={1.5} visible={visible}>
-      <primitive object={scene} visible={visible} />
-      {/* Hitbox je uvek sinhronizovan sa vidljivošću patke */}
-      {visible && (
+      const direction = new THREE.Vector3();
+      direction.subVectors(playerPos, currentPos.current);
+      direction.y = 0;
+
+      if (direction.length() < 0.01) return;
+
+      direction.normalize();
+
+      currentPos.current.addScaledVector(direction, speed * delta);
+
+      group.current.position.copy(currentPos.current);
+
+      group.current.lookAt(playerPos.x, group.current.position.y, playerPos.z);
+
+      if (!isBoss) {
+        group.current.rotation.y += Math.PI;
+      }
+
+      if (currentPos.current.z > endZ) {
+        currentPos.current.z = positionZ;
+        currentPos.current.x = (Math.random() - 0.5) * 6;
+        group.current.position.copy(currentPos.current);
+      }
+    });
+
+    if (!visible || hp <= 0 || !scene) return null;
+
+    return (
+      <group
+        ref={group}
+        position={currentPos.current.toArray()}
+        scale={scaleAmount}
+        visible={visible}
+      >
+        <primitive object={scene} />
+        {/* Vidljiv hitbox za testiranje i koliziju */}
         <mesh position={[0, 1, 0]}>
           <boxGeometry args={[1, 2, 1]} />
-          <meshBasicMaterial color="red" transparent opacity={0.3} wireframe />
+          <meshBasicMaterial
+            color={isBoss ? "orange" : "cyan"}
+            transparent
+            opacity={0.2}
+            wireframe
+            wireframeLinewidth={3}
+          />
         </mesh>
-      )}
-    </group>
-  );
-});
+      </group>
+    );
+  }
+);
 
 export default DuckEnemy;

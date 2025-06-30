@@ -2,11 +2,11 @@ import React, { forwardRef, useImperativeHandle, useRef, useState } from "react"
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-const BulletManager = forwardRef(({ playerRef, enemyRefs }, ref) => {
+const BulletManager = forwardRef(({ playerRef, enemyRefs, playShootSound }, ref) => {
   const bullets = useRef([]);
   const meshRefs = useRef({});
   const speed = 60;
-  const [, setTick] = useState(0); // samo da pokrene render
+  const [, setTick] = useState(0);
 
   useImperativeHandle(ref, () => ({
     shoot: () => {
@@ -27,7 +27,11 @@ const BulletManager = forwardRef(({ playerRef, enemyRefs }, ref) => {
         hit: false,
       });
 
-      setTick((t) => t + 1); // trigger render
+      if (playShootSound) {
+        playShootSound();
+      }
+
+      setTick((t) => t + 1);
     },
   }));
 
@@ -43,10 +47,11 @@ const BulletManager = forwardRef(({ playerRef, enemyRefs }, ref) => {
 
       for (const enemy of Object.values(enemyRefs.current || {})) {
         if (!enemy) continue;
-        const enemyObj = enemy.getObject?.();
         const alive = enemy.isAlive?.();
+        if (!alive) continue;
 
-        if (!enemyObj || !alive) continue;
+        const enemyObj = enemy.getObject?.();
+        if (!enemyObj) continue;
 
         if (bullet.position.distanceTo(enemyObj.position) < 1) {
           bullet.hit = true;
@@ -76,7 +81,7 @@ const BulletManager = forwardRef(({ playerRef, enemyRefs }, ref) => {
       }
     }
 
-    setTick((t) => t + 1); // trigger render da se ažurira UI
+    setTick((t) => t + 1);
   });
 
   return (

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, forwardRef } from "react";
+import React, { forwardRef, useRef, useEffect } from "react";
 import { useGLTF, useAnimations } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 
@@ -26,12 +26,9 @@ const CharacterPlayer = forwardRef(({ inputX }, ref) => {
     }
   });
 
-  // Izloži samo getWorldPosition i object, NE shoot!
   React.useImperativeHandle(ref, () => ({
     getWorldPosition: (target) => {
-      if (group.current) {
-        group.current.getWorldPosition(target);
-      }
+      if (group.current) group.current.getWorldPosition(target);
     },
     object: group.current,
   }));

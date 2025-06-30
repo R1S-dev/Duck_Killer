@@ -10,6 +10,7 @@ import EnemyManager from "../components/EnemyManager";
 import BulletManager from "../components/BulletManager";
 import GameUI from "../components/GameUI";
 import useGameLogic from "../hooks/useGameLogic";
+import ObstacleManager from "../components/ObstacleManager";
 
 export default function GameScreen({ onExit }) {
   const inputX = useRef(0);
@@ -28,6 +29,7 @@ export default function GameScreen({ onExit }) {
 
   const handleKill = useCallback(() => {
     setKills((k) => k + 1);
+    setScore((s) => s + 10);
   }, []);
 
   useGameLogic({
@@ -44,6 +46,12 @@ export default function GameScreen({ onExit }) {
     inputX.current = x * 2;
   };
 
+  const handleClick = () => {
+    if (bulletRef.current?.shoot) {
+      bulletRef.current.shoot();
+    }
+  };
+
   const handleRestart = () => {
     setScore(0);
     setKills(0);
@@ -54,6 +62,7 @@ export default function GameScreen({ onExit }) {
     <div
       className="w-screen h-screen bg-black relative overflow-hidden touch-none"
       onPointerMove={handlePointerMove}
+      onClick={handleClick}
     >
       <GameUI
         score={score}
@@ -63,10 +72,7 @@ export default function GameScreen({ onExit }) {
         onExit={onExit}
       />
 
-      <Canvas
-        shadows
-        fog={new THREE.FogExp2("#b0c4de", 0.01)} // magla u sceni
-      >
+      <Canvas shadows fog={new THREE.FogExp2("#b0c4de", 0.01)}>
         <PerspectiveCamera makeDefault position={[0, 3, 5]} fov={60} />
         <ambientLight intensity={0.6} />
         <directionalLight
@@ -79,15 +85,23 @@ export default function GameScreen({ onExit }) {
         <Environment preset="sunset" />
 
         <BeautifulSky />
-
         <InfiniteGround />
+
         <CharacterPlayer ref={playerRef} inputX={inputX} />
+
         <EnemyManager
           playerRef={playerRef}
           onEnemyRefsChange={handleEnemyRefsChange}
           onKill={handleKill}
         />
-        <BulletManager ref={bulletRef} enemyRefs={enemyRefs} playerRef={playerRef} />
+
+        <BulletManager
+          ref={bulletRef}
+          enemyRefs={enemyRefs}
+          playerRef={playerRef}
+        />
+
+        <ObstacleManager />
       </Canvas>
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-0" />

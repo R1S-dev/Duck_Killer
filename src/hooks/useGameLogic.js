@@ -10,7 +10,7 @@ export default function useGameLogic({
   bulletRef,
 }) {
   const lastShotTime = useRef(0);
-  const shootCooldown = 500; // cooldown u milisekundama (npr. 500ms = 2 metka u sekundi)
+  const shootCooldown = 500;
 
   useEffect(() => {
     if (gameOver) return;
@@ -31,9 +31,11 @@ export default function useGameLogic({
 
       Object.values(enemyRefs.current || {}).forEach((enemy) => {
         if (!enemy) return;
-        const enemyObj = enemy.getObject?.();
         const alive = enemy.isAlive?.();
-        if (!enemyObj || !alive) return;
+        if (!alive) return;
+
+        const enemyObj = enemy.getObject?.();
+        if (!enemyObj) return;
 
         const enemyPos = new THREE.Vector3();
         enemyObj.getWorldPosition(enemyPos);
@@ -41,12 +43,8 @@ export default function useGameLogic({
         const distance = playerPos.distanceTo(enemyPos);
 
         if (distance < 40 && now - lastShotTime.current > shootCooldown) {
-          const direction = new THREE.Vector3()
-            .subVectors(enemyPos, playerPos)
-            .normalize();
-
-          bulletRef.current.shoot(playerPos, direction);
-          lastShotTime.current = now; // update poslednjeg pucanja
+          bulletRef.current.shoot(playerPos, enemyPos.clone().sub(playerPos).normalize());
+          lastShotTime.current = now;
         }
 
         if (distance < 1.2 && alive) {
